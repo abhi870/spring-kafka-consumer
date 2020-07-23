@@ -9,6 +9,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 import static com.learnkafka.Entity.LibraryEventType.NEW;
 import static com.learnkafka.Entity.LibraryEventType.UPDATE;
 
@@ -25,16 +27,28 @@ public class LibraryEventsService {
     public void processLibraryEvent(ConsumerRecord<Integer, String> consumerRecord) throws JsonProcessingException {
         LibraryEvent libraryEvent = mapper.readValue(consumerRecord.value(), LibraryEvent.class);
         log.info("libraryEvent : {}", libraryEvent);
-        switch (libraryEvent.getLibraryEventType()){
+        switch (libraryEvent.getLibraryEventType()) {
             case NEW:
                 save(libraryEvent);
                 break;
             case UPDATE:
+                validate(libraryEvent);
+                save(libraryEvent);
                 break;
             default:
                 log.info("invalid lib event");
 
         }
+    }
+
+    private void validate(LibraryEvent libraryEvent) {
+        if (libraryEvent.getLibraryEventId() == null)
+            throw new IllegalArgumentException("library event id is missing");
+
+        Optional<LibraryEvent> libraryEventOptional = libraryEventRepository.findById(libraryEvent.getLibraryEventId());
+        if(!libraryEventOptional.isPresent())
+            throw new IllegalArgumentException("not a valid library event");
+        log.info("Validation Successful : {}", libraryEventOptional.get());
     }
 
     private void save(LibraryEvent libraryEvent) {
