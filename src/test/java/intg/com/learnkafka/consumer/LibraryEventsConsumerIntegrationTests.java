@@ -1,6 +1,8 @@
 package com.learnkafka.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.learnkafka.Entity.LibraryEvent;
+import com.learnkafka.repo.LibraryEventRepository;
 import com.learnkafka.service.LibraryEventsService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,10 +19,12 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.test.context.TestPropertySource;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -46,6 +50,9 @@ public class LibraryEventsConsumerIntegrationTests {
     @SpyBean
     LibraryEventsService libraryEventsServiceSpy;
 
+    @Autowired
+    LibraryEventRepository libraryEventRepository;
+
     @BeforeEach
     void setUp(){
         for (MessageListenerContainer messageListenerContainer:
@@ -67,5 +74,10 @@ public class LibraryEventsConsumerIntegrationTests {
         verify(libraryEventsConsumerSpy, times(1)).onMessage(isA(ConsumerRecord.class));
         verify(libraryEventsServiceSpy, times(1)).processLibraryEvent(isA(ConsumerRecord.class));
 
+        List<LibraryEvent> libraryEvents = libraryEventRepository.findAll();
+        assert libraryEvents.size() ==1 ;
+        libraryEvents.forEach(libraryEvent -> {
+            assertEquals(99, libraryEvent.getBook().getBookId());
+        });
     }
 }
