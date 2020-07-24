@@ -15,6 +15,7 @@ import org.mockito.Spy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.MessageListenerContainer;
@@ -24,11 +25,12 @@ import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -117,5 +119,69 @@ public class LibraryEventsConsumerIntegrationTests {
         LibraryEvent persistedLibraryEvent = libraryEventRepository.findById(libraryEvent.getLibraryEventId()).get();
 
         assertEquals("awesome book", persistedLibraryEvent.getBook().getBookName());
+    }
+
+    @Test
+    void publishInvalidIdUpdateLibraryEvent() throws InterruptedException, JsonProcessingException {
+
+        NoSuchElementException noSuchElementException = assertThrows(NoSuchElementException.class,()->{
+            String json = "{\"libraryEventType\":\"NEW\",\"libraryEventId\":null,\"book\":{\"bookId\":99,\"bookName\":\"someones BOOK\",\"bookAuthor\":\"Rupesh dugaje\"}}";
+            LibraryEvent libraryEvent = mapper.readValue(json, LibraryEvent.class);
+            libraryEvent.getBook().setLibraryEvent(libraryEvent);
+            libraryEventRepository.save(libraryEvent);
+
+            Book updatedBook = Book.builder().bookId(99).bookName("awesome book").bookAuthor("abhishek p").build();
+            libraryEvent.setLibraryEventType(LibraryEventType.UPDATE);
+            libraryEvent.setBook(updatedBook);
+            libraryEvent.setLibraryEventId(343);
+            String updatedJson = mapper.writeValueAsString(libraryEvent);
+            kafkaTemplate.sendDefault(343, updatedJson).get();
+
+            //when
+            CountDownLatch countDownLatch = new CountDownLatch(1);
+            countDownLatch.await(5, TimeUnit.SECONDS);
+
+            //then
+//        verify(libraryEventsConsumerSpy, times(1)).onMessage(isA(ConsumerRecord.class));
+//        verify(libraryEventsServiceSpy, times(1)).processLibraryEvent(isA(ConsumerRecord.class));
+
+            LibraryEvent persistedLibraryEvent = libraryEventRepository.findById(343).get();
+
+        });
+
+    assertTrue(noSuchElementException.getMessage().contains("No value present"));
+
+    }
+
+    @Test
+    void publishNullIdUpdateLibraryEvent() throws InterruptedException, JsonProcessingException {
+
+        InvalidDataAccessApiUsageException invalidDataAccessApiUsageException = assertThrows(InvalidDataAccessApiUsageException.class,()->{
+            String json = "{\"libraryEventType\":\"NEW\",\"libraryEventId\":null,\"book\":{\"bookId\":99,\"bookName\":\"someones BOOK\",\"bookAuthor\":\"Rupesh dugaje\"}}";
+            LibraryEvent libraryEvent = mapper.readValue(json, LibraryEvent.class);
+            libraryEvent.getBook().setLibraryEvent(libraryEvent);
+            libraryEventRepository.save(libraryEvent);
+
+            Book updatedBook = Book.builder().bookId(99).bookName("awesome book").bookAuthor("abhishek p").build();
+            libraryEvent.setLibraryEventType(LibraryEventType.UPDATE);
+            libraryEvent.setBook(updatedBook);
+            libraryEvent.setLibraryEventId(null);
+            String updatedJson = mapper.writeValueAsString(libraryEvent);
+            kafkaTemplate.sendDefault(null, updatedJson).get();
+
+            //when
+            CountDownLatch countDownLatch = new CountDownLatch(1);
+            countDownLatch.await(5, TimeUnit.SECONDS);
+
+            //then
+//        verify(libraryEventsConsumerSpy, times(1)).onMessage(isA(ConsumerRecord.class));
+//        verify(libraryEventsServiceSpy, times(1)).processLibraryEvent(isA(ConsumerRecord.class));
+
+            LibraryEvent persistedLibraryEvent = libraryEventRepository.findById(null).get();
+
+        });
+
+        assertTrue(invalidDataAccessApiUsageException.getMessage().contains("The given id must not be null"));
+
     }
 }
