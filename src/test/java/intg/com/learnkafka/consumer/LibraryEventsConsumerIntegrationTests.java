@@ -184,4 +184,17 @@ public class LibraryEventsConsumerIntegrationTests {
         assertTrue(invalidDataAccessApiUsageException.getMessage().contains("The given id must not be null"));
 
     }
+
+    @Test
+    void checkRetryPolicyWithNullLibEventId() throws ExecutionException, InterruptedException, JsonProcessingException {
+        String json = "{\"libraryEventType\":\"UPDATE\",\"libraryEventId\":null,\"book\":{\"bookId\":99,\"bookName\":\"The Awesome BOOK\",\"bookAuthor\":\"Rupesh dugaje\"}}";
+        kafkaTemplate.sendDefault(json).get();
+
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        countDownLatch.await(3, TimeUnit.SECONDS);
+
+        verify(libraryEventsConsumerSpy, times(7)).onMessage(isA(ConsumerRecord.class));
+        verify(libraryEventsServiceSpy, times(7)).processLibraryEvent(isA(ConsumerRecord.class));
+
+    }
 }
