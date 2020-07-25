@@ -187,7 +187,7 @@ public class LibraryEventsConsumerIntegrationTests {
 
     @Test
     void checkRetryPolicyWithNullLibEventId() throws ExecutionException, InterruptedException, JsonProcessingException {
-        String json = "{\"libraryEventType\":\"UPDATE\",\"libraryEventId\":null,\"book\":{\"bookId\":99,\"bookName\":\"The Awesome BOOK\",\"bookAuthor\":\"Rupesh dugaje\"}}";
+        String json = "{\"libraryEventType\":\"UPDATE\",\"libraryEventId\":0,\"book\":{\"bookId\":99,\"bookName\":\"The Awesome BOOK\",\"bookAuthor\":\"Rupesh dugaje\"}}";
         kafkaTemplate.sendDefault(json).get();
 
         CountDownLatch countDownLatch = new CountDownLatch(1);

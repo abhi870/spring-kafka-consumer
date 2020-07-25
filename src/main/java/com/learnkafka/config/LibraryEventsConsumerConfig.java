@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.kafka.ConcurrentKafkaListenerConta
 import org.springframework.boot.autoconfigure.web.ResourceProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
@@ -21,6 +22,8 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 @EnableKafka
@@ -35,7 +38,7 @@ public class LibraryEventsConsumerConfig {
         log.info("inside config.....................................................");
         ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         configurer.configure(factory, kafkaConsumerFactory.getIfAvailable());
-        factory.setConcurrency(3);
+        factory.setConcurrency(5);
         factory.setErrorHandler((thrownException, data) -> {
             log.info("Exception in consumerConfig is {} and the record is {}", thrownException.getMessage(), data);
         });
@@ -45,7 +48,7 @@ public class LibraryEventsConsumerConfig {
 
     public RetryTemplate retryTemplate() {
         FixedBackOffPolicy fixedBackOffPolicy = new FixedBackOffPolicy();
-        fixedBackOffPolicy.setBackOffPeriod(1);
+        fixedBackOffPolicy.setBackOffPeriod(100);
 
         RetryTemplate retryTemplate = new RetryTemplate();
         retryTemplate.setRetryPolicy(simpleRetryPolicy());
@@ -54,7 +57,11 @@ public class LibraryEventsConsumerConfig {
     }
 
     public RetryPolicy simpleRetryPolicy() {
-        SimpleRetryPolicy simpleRetryPolicy = new SimpleRetryPolicy();
+
+        Map<Class<? extends Throwable>, Boolean> exceptions = new HashMap<>();
+        exceptions.put(IllegalArgumentException.class, false);
+        exceptions.put(RecoverableDataAccessException.class, true);
+        SimpleRetryPolicy simpleRetryPolicy = new SimpleRetryPolicy(1, exceptions, true);
         simpleRetryPolicy.setMaxAttempts(7);
         return simpleRetryPolicy;
     }
