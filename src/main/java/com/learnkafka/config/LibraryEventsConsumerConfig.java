@@ -14,6 +14,7 @@ import org.springframework.retry.backoff.FixedBackOffPolicy;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,6 +35,16 @@ public class LibraryEventsConsumerConfig {
             log.info("Exception in consumerConfig is {} and the record is {}", thrownException.getMessage(), data);
         });
         factory.setRetryTemplate(retryTemplate());
+        factory.setRecoveryCallback(context -> {
+            if(context.getLastThrowable().getCause() instanceof RecoverableDataAccessException){
+                //recovery logic
+                log.info("Inside Recoverable logic...");
+
+            }else{
+                log.info("Inside NonRecoverable logic...");
+                throw new RuntimeException(context.getLastThrowable().getMessage());
+            }
+            return null;});
         return factory;
     }
 
